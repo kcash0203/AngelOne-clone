@@ -20,14 +20,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
 
       - name: Install and build
         working-directory: ${{ env.APP_DIR }}
         run: |
-          npm ci || npm install
-          npm run build
+          npm install
+          npx vite build
 
       - name: Find build output
         id: out
@@ -40,17 +38,17 @@ jobs:
       - name: Add SPA rewrite rules
         working-directory: ${{ env.APP_DIR }}
         run: |
-          cat > ${{ steps.out.outputs.dir }}/.htaccess <<'EOF'
-          RewriteEngine On
-          RewriteCond %{REQUEST_FILENAME} !-f
-          RewriteCond %{REQUEST_FILENAME} !-d
-          RewriteRule ^ /index.html [L]
-          EOF
+          printf '%s\n' \
+            'RewriteEngine On' \
+            'RewriteCond %{REQUEST_FILENAME} !-f' \
+            'RewriteCond %{REQUEST_FILENAME} !-d' \
+            'RewriteRule ^ /index.html [L]' \
+            > ${{ steps.out.outputs.dir }}/.htaccess
 
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
@@ -63,4 +61,4 @@ jobs:
       - name: Fix ownership
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "chown -R angel:angel ${{ env.REMOTE_DIR }} 2>/dev/null || true"
+            'U=$(stat -c "%U:%G" /home/angel.xai2100he.cloud) && chown -R "$U" /home/angel.xai2100he.cloud/public_html'
